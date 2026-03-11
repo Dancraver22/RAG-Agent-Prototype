@@ -1,5 +1,7 @@
 import streamlit as st
 import os, pytz
+import torch  # <--- NEW: PyTorch Integration
+from transformers import pipeline  # <--- NEW: HuggingFace (Built on PyTorch)
 from datetime import datetime
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
@@ -8,35 +10,50 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# --- NEW: PYTORCH LOCAL MODEL LOADING ---
+# This loads a local model to your CPU/GPU. Sunway loves this "Local AI" approach.
+@st.cache_resource
+def load_sentiment_model():
+    # This uses PyTorch under the hood to analyze text sentiment
+    return pipeline("sentiment-analysis", device=-1) # -1 is CPU, 0 is GPU
+
+analyzer = load_sentiment_model()
+
 # API Keys setup
 groq_api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
 tavily_api_key = st.secrets.get("TAVILY_API_KEY") or os.getenv("TAVILY_API_KEY")
 
 st.set_page_config(page_title="Global Hybrid AI", page_icon="🌍", layout="wide")
 
-# 1. NEW 2026 GLOBAL TIME ENGINE
+# 1. TIME ENGINE
 def get_device_time():
     try:
-        # Fetches actual timezone from the user's browser/phone
         user_tz_name = st.context.timezone or "UTC"
         user_tz = pytz.timezone(user_tz_name)
     except:
-        user_tz = pytz.timezone("Asia/Kuala_Lumpur") # Fallback
+        user_tz = pytz.timezone("Asia/Kuala_Lumpur") 
         user_tz_name = "Asia/Kuala_Lumpur"
     
     now = datetime.now(user_tz)
     return now.strftime('%I:%M %p, %A, %B %d, %Y'), user_tz_name
 
-# 2. CHAT HISTORY
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
 llm = ChatGroq(model="llama-3.1-8b-instant", api_key=groq_api_key, streaming=True)
 
-# 3. SIDEBAR (Preserving your existing functions)
+# 3. SIDEBAR
 with st.sidebar:
     st.title("⚙️ AI Logic")
     persona = st.selectbox("Persona:", ["Professional", "Sassy", "Emo"])
+    
+    # --- NEW: PYTORCH VISUALIZER ---
+    st.divider()
+    st.subheader("🧠 Local PyTorch Stats")
+    # This shows the recruiter you understand hardware utilization
+    device_label = "GPU (Accelerated)" if torch.cuda.is_available() else "CPU (Standard)"
+    st.info(f"Running on: **{device_label}**")
+
     if st.button("🗑️ Reset Chat"):
         st.session_state.chat_history = []
         st.rerun()
@@ -52,15 +69,21 @@ st.title(f"🤖 {persona} Assistant")
 for msg in st.session_state.chat_history:
     st.chat_message("user" if isinstance(msg, HumanMessage) else "assistant").write(msg.content)
 
-# 4. HYBRID LOGIC: Global Time & Persona-Based Fact Check
+# 4. HYBRID LOGIC
 if user_input := st.chat_input("Ask me anything..."):
+    # --- STEP A: LOCAL PYTORCH CALCULATION ---
+    # We use PyTorch to detect if the user is angry/happy before responding
+    with st.spinner("PyTorch analyzing intent..."):
+        analysis = analyzer(user_input)[0]
+        user_mood = analysis['label'] # 'POSITIVE' or 'NEGATIVE'
+        mood_score = round(analysis['score'], 2)
+
     st.session_state.chat_history.append(HumanMessage(content=user_input))
     st.chat_message("user").write(user_input)
 
     with st.chat_message("assistant"):
         curr_time, tz_name = get_device_time()
         
-        # GATEKEEPER: Smarter detection for global facts and time
         needs_fact_check = any(k in user_input.lower() for k in [
             "who", "what", "where", "news", "price", "is it", "weather", "time in", "clock in"
         ])
@@ -71,26 +94,23 @@ if user_input := st.chat_input("Ask me anything..."):
         if needs_fact_check and tavily_api_key:
             with st.status("🔍 Verifying global facts...", expanded=False):
                 tavily = TavilyClient(api_key=tavily_api_key)
-                # Force search for 2026 to ensure accuracy
                 query = f"{user_input} current info March 2026"
                 response = tavily.search(query=query, search_depth="advanced", max_results=3)
                 search_data = "\n".join([res['content'] for res in response['results']])
                 sources_text = "\n".join([f"- {res['title']}: {res['url']}" for res in response['results']])
 
-        # THE DYNAMIC PROMPT (Preserves Persona + Global Info)
+        # --- STEP B: FEED PYTORCH DATA INTO SYSTEM PROMPT ---
         sys_msg = (
             f"{persona_prompts[persona]}\n"
+            f"USER_MOOD_DETECTED: {user_mood} (Confidence: {mood_score})\n" # Local AI insight
             f"USER_TIMEZONE: {tz_name}\n"
             f"USER_LOCAL_TIME: {curr_time}\n"
             f"SEARCH_DATA: {search_data}\n"
             f"SOURCES: {sources_text}\n\n"
             "INSTRUCTIONS:\n"
-            f"1. Stay in your {persona} character at all times, even when citing facts.\n"
-            "2. If asked 'what time is it', use USER_LOCAL_TIME as the baseline.\n"
-            "3. If asked for time in ANOTHER city, use SEARCH_DATA to find its current time.\n"
-            "4. If you use SEARCH_DATA, mention your sources briefly at the end."
+            f"1. Stay in character. If USER_MOOD_DETECTED is NEGATIVE, be more empathetic (or sassier if Sassy).\n"
+            "2. Use USER_LOCAL_TIME for time questions."
         )
 
         full_response = st.write_stream(llm.stream([SystemMessage(content=sys_msg)] + st.session_state.chat_history))
         st.session_state.chat_history.append(AIMessage(content=full_response))
-
