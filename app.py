@@ -1,6 +1,7 @@
 import streamlit as st
 import os, pytz
 import torch
+import time
 from transformers import pipeline
 from datetime import datetime
 from langchain_groq import ChatGroq
@@ -20,10 +21,6 @@ tavily_api_key = st.secrets.get("TAVILY_API_KEY") or os.getenv("TAVILY_API_KEY")
 # --- 2. LOCAL PYTORCH OPTIMIZATION ---
 @st.cache_resource
 def load_sentiment_model():
-    """
-    Loads a lightweight DistilBERT model for sentiment analysis.
-    Forcing device=-1 (CPU) ensures it stays stable on Streamlit Cloud.
-    """
     return pipeline(
         "sentiment-analysis", 
         model="distilbert-base-uncased-finetuned-sst-2-english",
@@ -47,19 +44,31 @@ def get_device_time():
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# Initialize LLM (Temperature 0 is crucial for factual RAG)
-llm = ChatGroq(model="llama-3.1-8b-instant", api_key=groq_api_key, streaming=True, temperature=0)
-
-# --- 4. SIDEBAR ---
+# --- 4. SIDEBAR (REFINED) ---
 with st.sidebar:
     st.title("⚙️ AI Logic Center")
+    
+    # NEW: Model Selection for 2026 Models
+    st.subheader("🤖 Brain Selection")
+    selected_model_id = st.selectbox(
+        "Choose Groq Engine:",
+        [
+            "openai/gpt-oss-120b",           # High Reasoning
+            "meta-llama/llama-4-scout-17b-16e-instruct", # Ultra-Fast/Multimodal
+            "meta-llama/llama-3.3-70b-versatile", # Reliable Baseline
+            "qwen/qwen3-32b"                 # Best for Multilingual
+        ],
+        index=1,
+        help="GPT-OSS is best for logic; Llama 4 Scout is fastest."
+    )
+    
     persona = st.selectbox("Persona:", ["Professional", "Sassy", "Emo"])
     
     st.divider()
     st.subheader("🧠 Local PyTorch Engine")
     device_info = "GPU (Accelerated)" if torch.cuda.is_available() else "CPU (Standard)"
     st.info(f"Inference Mode: **{device_info}**")
-    st.caption("Using DistilBERT for local intent analysis.")
+    st.caption("DistilBERT analyzing user intent locally.")
 
     if st.button("🗑️ Reset Chat"):
         st.session_state.chat_history = []
@@ -71,8 +80,17 @@ with st.sidebar:
         "Emo": "You are moody and deep. Everything is gray and meaningless."
     }
 
+# Initialize LLM with the selected model
+llm = ChatGroq(
+    model=selected_model_id, 
+    api_key=groq_api_key, 
+    streaming=True, 
+    temperature=0
+)
+
 # --- 5. CHAT INTERFACE ---
 st.title(f"🤖 {persona} Grounded Assistant")
+st.caption(f"Currently powered by: **{selected_model_id}**")
 
 # Display History
 for msg in st.session_state.chat_history:
@@ -107,7 +125,6 @@ if user_input := st.chat_input("Ask me anything..."):
                 query = f"{user_input} latest info 2026"
                 response = tavily.search(query=query, search_depth="advanced", max_results=4)
                 
-                # Format context for the LLM
                 search_data = "\n\n".join([
                     f"--- DOCUMENT {i+1} ---\nSource: {res['title']}\nSnippet: {res['content']}" 
                     for i, res in enumerate(response['results'])
@@ -119,22 +136,30 @@ if user_input := st.chat_input("Ask me anything..."):
             f"SYSTEM ROLE: {persona_prompts[persona]}\n"
             f"USER_METADATA: Sentiment={user_mood}, Timezone={tz_name}, LocalTime={curr_time}\n\n"
             f"PROVIDED_CONTEXT:\n{search_data}\n\n"
-            "INSTRUCTIONS:\n"
-            "1. Answer ONLY using the PROVIDED_CONTEXT. Do not use outside knowledge.\n"
-            "2. If the context does not contain the answer, say: 'I don't have enough specific data to answer that accurately.'\n"
-            "3. Use inline citations like [1] or [2] next to facts extracted from the context.\n"
-            "4. Maintain your persona but prioritize FACTUAL ACCURACY over creativity.\n"
-            "5. If asked about time, refer to USER_METADATA LocalTime."
+            f"INSTRUCTIONS:\n"
+            f"1. Answer ONLY using the PROVIDED_CONTEXT. Do not use outside knowledge.\n"
+            f"2. If the context does not contain the answer, say: 'I don't have enough specific data to answer that accurately.'\n"
+            f"3. Use inline citations like [1] or [2] next to facts extracted from the context.\n"
+            f"4. Maintain your persona but prioritize FACTUAL ACCURACY over creativity.\n"
+            f"5. If asked about time, refer to USER_METADATA LocalTime."
         )
+
+        # Start timer for performance tracking
+        start_time = time.time()
 
         # Generate and Stream
         full_response = st.write_stream(
             llm.stream([SystemMessage(content=sys_msg)] + st.session_state.chat_history)
         )
         
-        # Display Sources UI
+        duration = round(time.time() - start_time, 2)
+        
+        # Display Performance & Sources
+        st.caption(f"⏱️ Inference: {duration}s | 🧠 Sentiment: {user_mood} ({mood_score})")
+        
         if sources_text:
-            st.markdown(f"**Sources Found:**\n{sources_text}")
+            with st.expander("📚 View Sources"):
+                st.markdown(sources_text)
             full_response += f"\n\nSources Found:\n{sources_text}"
 
         st.session_state.chat_history.append(AIMessage(content=full_response))
