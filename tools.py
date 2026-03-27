@@ -30,9 +30,9 @@ def fact_check_search(query: str):
 @tool
 def get_world_clock(location: str):
     """
-    USE THIS ONLY when the user EXPLICITLY asks 'what time is it' or 'current time'.
-    Input 'location' must be a city name. 
-    DO NOT use this just because a city is mentioned in passing.
+    REQUIRED whenever the user asks 'what time is it' or 'current time'.
+    This is the ONLY way to get the real, accurate time. 
+    Use the user's home location if they don't mention a city.
     """
     try:
         best_match = None
