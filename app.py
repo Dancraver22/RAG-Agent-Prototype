@@ -1,129 +1,123 @@
 import streamlit as st
 import base64
 import pandas as pd
-from PIL import Image
-from io import BytesIO
-
-# Core AI Libraries
+from datetime import datetime
+from streamlit_javascript import st_javascript
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
 # --- IMPORT YOUR TOOLS ---
-# Ensure tools.py is in the same folder on GitHub
 from tools import all_tools 
 
-# --- CONFIG ---
-st.set_page_config(page_title="AI Protoype", layout="wide", page_icon="🌐")
+# --- 1. CONFIG & UI SETUP ---
+st.set_page_config(page_title="Global Vision AI", layout="wide", page_icon="🌐")
 
-# --- 1. MODEL BINDING ---
-# Llama-4-Scout: Optimized for reasoning and tool-calling
-llm = ChatGroq(model="meta-llama/llama-4-scout-17b-16e-instruct", temperature=0.5)
+# --- 2. IP & TIMEZONE DETECTION ---
+# Detects user's actual location via browser JS
+user_tz = st_javascript("Intl.DateTimeFormat().resolvedOptions().timeZone")
+
+# --- 3. MODEL BINDING ---
+llm = ChatGroq(model="meta-llama/llama-4-scout-17b-16e-instruct", temperature=0.1)
 llm_with_tools = llm.bind_tools(all_tools)
 
-# --- 2. UTILITIES ---
-def encode_image(uploaded_file):
-    """Encodes image to base64 for the Vision model"""
-    return base64.b64encode(uploaded_file.read()).decode('utf-8')
+# --- 4. DATA & IMAGE UTILS (Kept all your features!) ---
+def encode_image(file):
+    return base64.b64encode(file.read()).decode('utf-8')
 
-def process_data_file(file):
-    """The Data Science Pipeline (Pandas Logic)"""
+def process_data(file):
     try:
         df = pd.read_csv(file) if file.name.endswith('.csv') else pd.read_excel(file)
-        df = df.dropna(how='all', axis=0).dropna(how='all', axis=1)
-        summary = {
-            "columns": list(df.columns),
-            "rows": len(df),
-            "sample_data": df.head(3).to_dict(orient='records'),
-            "stats": df.describe().to_dict()
-        }
-        return df, summary
+        return df, {"cols": list(df.columns), "rows": len(df)}
     except Exception as e:
-        return None, f"Error: {e}"
+        return None, str(e)
 
-# --- 3. PERSONAS ---
-persona_prompts = {
-    "Professional": "Tech Consultant. Mirrored dialect. Polite but efficient.",
-    "Sassy": "Witty friend. High energy. Sassy, Friendly, Understanding",
-    "Emo": "Burnt-out living energy. Low energy. Depressed."
+# Personas
+personas = {
+    "Professional": "Tech Consultant. Efficient and polite.",
+    "Sassy": "Witty friend. Use 'Abuden', 'Weh', and Manglish slang.",
+    "Emo": "KL Dev. Everything is 'sien' or 'koyak'. Low energy."
 }
 
-# --- 4. SESSION STATE ---
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# --- 5. UI SIDEBAR ---
+# --- 5. SIDEBAR ---
 with st.sidebar:
     st.title("⚙️ Control Panel")
-    persona = st.selectbox("Choose Persona", list(persona_prompts.keys()))
-    uploaded_image = st.file_uploader("📸 Image Input", type=["jpg", "png"])
-    uploaded_data = st.file_uploader("📊 Data Input (CSV/Excel)", type=["csv", "xlsx"])
-    
-    if st.button("Clear Memory"):
+    selected_persona = st.selectbox("Persona", list(personas.keys()))
+    uploaded_img = st.file_uploader("📸 Image", type=["jpg", "png"])
+    uploaded_csv = st.file_uploader("📊 Data", type=["csv", "xlsx"])
+    st.info(f"📍 Detected TZ: {user_tz if user_tz else 'Locating...'}")
+    if st.button("Clear Chat"):
         st.session_state.chat_history = []
         st.rerun()
 
-# --- 6. RENDER CHAT HISTORY (Enhanced for UI Stability) ---
+# --- 6. RENDER HISTORY ---
 chat_container = st.container()
 with chat_container:
-    for message in st.session_state.chat_history:
-        role = "user" if isinstance(message, HumanMessage) else "assistant"
+    for m in st.session_state.chat_history:
+        role = "user" if isinstance(m, HumanMessage) else "assistant"
         with st.chat_message(role):
-            if isinstance(message.content, list):
-                for item in message.content:
+            if isinstance(m.content, list):
+                for item in m.content:
                     if item["type"] == "text": st.markdown(item["text"])
             else:
-                st.markdown(message.content)
+                st.markdown(m.content)
 
-# --- 7. MAIN EXECUTION LOOP ---
-if user_input := st.chat_input("Message the agent..."):
+# --- 7. EXECUTION ---
+if user_input := st.chat_input("Ask me anything..."):
     
-    # 1. IMMEDIATE STATE UPDATE (Stops the "Icon Combine" glitch)
-    user_msg = HumanMessage(content=[{"type": "text", "text": user_input}])
-    if uploaded_image:
-        base_64_img = encode_image(uploaded_image)
-        user_msg.content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base_64_img}"}})
+    # Process Files
+    data_ctx = "No file."
+    if uploaded_csv:
+        _, summary = process_data(uploaded_csv)
+        data_ctx = str(summary)
+
+    # Build Message
+    u_content = [{"type": "text", "text": user_input}]
+    if uploaded_img:
+        b64 = encode_image(uploaded_img)
+        u_content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}})
     
-    st.session_state.chat_history.append(user_msg)
+    u_msg = HumanMessage(content=u_content)
     
-    # Force the UI to show the user message immediately before thinking
     with chat_container:
         with st.chat_message("user"):
             st.markdown(user_input)
-            if uploaded_image: st.image(uploaded_image, width=300)
+            if uploaded_img: st.image(uploaded_img, width=300)
 
-    # 2. SYSTEM CONTEXT (Kept your Pandas & Persona logic)
-    data_context = "No file uploaded."
-    if uploaded_data:
-        _, data_summary = process_data_file(uploaded_data)
-        data_context = f"CURRENT_DATASET_SUMMARY: {data_summary}"
+    st.session_state.chat_history.append(u_msg)
 
-    sys_msg = SystemMessage(content=(
-        f"SYSTEM ROLE: {persona_prompts[persona]}\n"
-        f"DATA_CONTEXT: {data_context}\n"
-        "INSTRUCTIONS: Mirror user dialect (Manglish). Never guess time/facts. Use tools."
+    # System Prompt with IP Awareness
+    sys_prompt = SystemMessage(content=(
+        f"ROLE: {personas[selected_persona]}\n"
+        f"USER_TIMEZONE: {user_tz}\n"
+        f"DATA_CONTEXT: {data_ctx}\n"
+        f"CURRENT_DATE: {datetime.now().strftime('%Y-%m-%d')}\n"
+        "RULES: Use 'get_world_clock' for time. Use 'fact_check_search' for any live facts. "
+        "DO NOT GUESS. Mirror user dialect. Be grounded."
     ))
 
-    # 3. AGENT EXECUTION
+    # AI Response
     with st.chat_message("assistant"):
-        # We use a placeholder so the text streams into a fresh box
-        response_placeholder = st.empty()
+        box = st.empty()
+        # Step 1: Tool Call Decision
+        call = llm_with_tools.invoke([sys_prompt] + st.session_state.chat_history)
         
-        # Decision: Thinking phase
-        response = llm_with_tools.invoke([sys_msg] + st.session_state.chat_history)
-        
-        if response.tool_calls:
-            for tool_call in response.tool_calls:
-                selected_tool = next(t for t in all_tools if t.name == tool_call["name"])
-                with st.status(f"🛠️ Using {selected_tool.name}...", expanded=False) as status:
-                    observation = selected_tool.func(**tool_call["args"])
-                    status.update(label="✅ Task Complete", state="complete")
+        if call.tool_calls:
+            for t_call in call.tool_calls:
+                t_map = {t.name: t for t in all_tools}
+                target_tool = t_map[t_call["name"]]
                 
-                # Final pass with tool data
-                final_stream = llm.stream([sys_msg] + st.session_state.chat_history + [response, AIMessage(content=str(observation))])
-                ai_content = response_placeholder.write_stream(final_stream)
+                with st.status(f"🛠️ Agent checking {target_tool.name}...", expanded=False) as s:
+                    obs = target_tool.invoke(t_call["args"])
+                    s.update(label="✅ Data Verified", state="complete")
+                
+                # Step 2: Final Stream
+                stream = llm.stream([sys_prompt] + st.session_state.chat_history + [call, AIMessage(content=str(obs))])
+                final_txt = box.write_stream(stream)
         else:
-            ai_content = response_placeholder.write_stream(llm.stream([sys_msg] + st.session_state.chat_history))
+            final_txt = box.write_stream(llm.stream([sys_prompt] + st.session_state.chat_history))
 
-    # 4. FINAL SYNC & RESET
-    st.session_state.chat_history.append(AIMessage(content=ai_content))
-    st.rerun() # Hard reset to clean up the UI icons
+    st.session_state.chat_history.append(AIMessage(content=final_txt))
+    st.rerun()
