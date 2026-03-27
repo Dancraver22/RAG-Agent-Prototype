@@ -1,9 +1,9 @@
 streamlit
+streamlit-javascript
 pandas
 openpyxl
 pytz
 langchain-groq
 langchain-community
-wikipedia
 tavily-python
 pillow
