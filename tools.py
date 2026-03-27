@@ -8,21 +8,26 @@ from langchain.tools import tool
 from tavily import TavilyClient
 import streamlit as st
 
-# --- 1. LIVE GROUNDING TOOL ---
 @tool
 def fact_check_search(query: str):
     """
-    USE THIS ONLY when the user asks for FACTS, NEWS, or CURRENT EVENTS.
-    Do not use this for general conversation.
+    REQUIRED for any factual questions. 
+    Returns the most up-to-date verified facts from the live web.
     """
     try:
         client = TavilyClient(api_key=st.secrets["TAVILY_API_KEY"])
-        results = client.search(query=query, search_depth="advanced", max_results=3, include_answer=True)
+        # We increase max_results slightly to get better consensus
+        results = client.search(query=query, search_depth="advanced", max_results=5, include_answer=True)
         
         direct_answer = results.get('answer', "")
-        context = "\n".join([f"Source: {r['url']}\nContent: {r['content']}" for r in results['results']])
+        # We format this very clearly for the LLM
+        sources = []
+        for r in results['results']:
+            sources.append(f"SOURCE DATA: {r['content']} (Link: {r['url']})")
         
-        return f"Direct Answer: {direct_answer}\n\nSupporting Details:\n{context}"
+        context = "\n---\n".join(sources)
+        
+        return f"VERIFIED ANSWER: {direct_answer}\n\nSUPPORTING EVIDENCE:\n{context}"
     except Exception as e:
         return f"Search Error: {str(e)}"
 
