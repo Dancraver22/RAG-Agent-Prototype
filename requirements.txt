@@ -3,6 +3,7 @@ streamlit-javascript
 pandas
 openpyxl
 pytz
+langchain
 langchain-groq
 langchain-community
 tavily-python
