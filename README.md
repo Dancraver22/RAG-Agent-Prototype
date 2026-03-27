@@ -1,36 +1,44 @@
-🤖 Multi-Persona AI Orchestration Agent
+🤖 Global Vision AI: Multimodal RAG & Data Operations Agent
+Live Demo: View Prototype
 
-Live Demo: https://rag-agent-prototype-gy6jzbfwgtezeprvfifjd8.streamlit.app/
-
-A Python Framework for Fact-Grounded Conversational AI
 📖 Project Overview
-This project is an Active Development Prototype built with Python and LangChain. It is designed to bridge the gap between Large Language Models (LLMs) and real-world data sources, providing a framework that is both accurate and adaptable.
+Global Vision AI is a High-Performance AI Orchestration Framework built to bridge the gap between Large Language Models (LLMs) and structured business data. Unlike standard chatbots, this system implements a Grounded RAG (Retrieval-Augmented Generation) pipeline that combines live web intelligence with local data analytics.
 
-The primary goal of this project is to solve the "Hallucination Problem" in AI by implementing a Grounded RAG (Retrieval-Augmented Generation) pipeline.
+Designed for the 2026 tech landscape, this agent focuses on Technical Agility: shifting between complex data processing, visual recognition, and high-context conversational personas.
 
-🚀 Technical Core Capabilities
-RAG-Driven Accuracy: Utilizes Retrieval-Augmented Generation via the Tavily Search API to anchor responses in live, verified data.
+🚀 Core Technical Capabilities
+🧠 Multimodal Intelligence & Vision
+Computer Vision Integration: Implements asynchronous image encoding (Base64) to allow the Llama 4 Scout architecture to analyze visual data in real-time.
 
-Dynamic Persona Engine: Features a modular prompt system allowing the agent to switch between Professional, Creative, and Technical communication styles.
+NLP Sentiment Engine: Utilizes a local distilbert-base-uncased transformer pipeline to detect user mood and dynamically adjust response parameters without increasing API latency.
 
-Intelligent Tool Calling: The agent determines when to utilize external tools (Google Search, Wikipedia) based on user intent.
+📊 Data Operations (Pandas & Numpy)
+Automated Data Ingestion: Integrated a specialized pipeline for CSV/Excel processing.
 
-Optimized Memory Management: Implements a sliding-window message history to manage Context Window limits and control API token costs.
+Contextual Summarization: Uses Pandas to generate metadata snapshots (statistical descriptions, head/tail samples) to provide the LLM with a structured "source of truth," eliminating hallucinations in data-heavy queries.
 
-🛠️ Tech Stack & Integration
-Framework: LangChain
+🔍 Grounded RAG & Web Orchestration
+Internet-Augmented Retrieval: Leverages the Tavily Search API for real-time fact-checking and news retrieval.
 
-Model Provider: Groq (Llama 3.1 Architecture)
+Intent-Based Search Triggering: Implements a keyword-density classifier to determine when an external search is architecturally necessary, optimizing token usage.
 
-Frontend: Streamlit with Custom CSS injection for enhanced UX
+🎭 Dynamic Persona Engine
+Context-Aware Personalization: A modular system that switches between Professional (Tech Consultant), Sassy (Social/Slang), and Internal Dev (Technical/Burnout) styles, mirroring local Malaysian dialects (Manglish/Rojak) for enhanced user engagement.
 
-Data Protocols: REST APIs (Tavily, Wikipedia) and IANA timezone management
+🛠️ Specialist Tech Stack
+Orchestration: LangChain (Message History & System Prompt Engineering)
 
-⚠️ Current Status & Future Roadmap (WIP)
-As this project is in the Initial Prototype Phase, I am currently focused on the following iterations:
+Inference Power: Groq (Meta-Llama-4-Scout-17B Architecture)
 
-Logic Refinement: Improving the "Intent Classifier" to reduce redundant search triggers for casual conversation.
+Data Science: Pandas, NumPy, OpenPyXL
 
-Latency Optimization: Recently achieved an 80% reduction in boot time by refactoring environment dependencies.
+Machine Learning: Hugging Face Transformers (PyTorch)
 
-Data Persistence: Researching the integration of Vector Databases (e.g., Pinecone) to replace temporary session-based memory.
+Infrastructure: Streamlit (UI), REST APIs, IANA Timezone Management, Base64 Image Processing
+
+📈 Engineering Roadmap
+[COMPLETED] Integrated Pandas/Numpy for structured data analysis.
+
+[IN PROGRESS] Transitioning from temporary st.session_state to Vector Database Persistence (ChromaDB/Pinecone) for long-term user memory.
+
+[UPCOMING] Implementation of FastAPI to decouple the backend logic from the UI, turning the agent into a scalable microservice.
