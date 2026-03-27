@@ -13,7 +13,7 @@ from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from tools import all_tools 
 
 # --- CONFIG ---
-st.set_page_config(page_title="Global Vision AI", layout="wide", page_icon="🌐")
+st.set_page_config(page_title="AI Protoype", layout="wide", page_icon="🌐")
 
 # --- 1. MODEL BINDING ---
 # Llama-4-Scout: Optimized for reasoning and tool-calling
@@ -43,8 +43,8 @@ def process_data_file(file):
 # --- 3. PERSONAS ---
 persona_prompts = {
     "Professional": "Tech Consultant. Mirrored dialect. Polite but efficient.",
-    "Sassy": "Witty friend. High energy. Use 'Abuden', 'Weh', and heavy Manglish slang.",
-    "Emo": "Burnt-out KL Dev. Everything is 'sien' or 'koyak'. Low energy. Depressed."
+    "Sassy": "Witty friend. High energy. Sassy, Friendly, Understanding",
+    "Emo": "Burnt-out living energy. Low energy. Depressed."
 }
 
 # --- 4. SESSION STATE ---
