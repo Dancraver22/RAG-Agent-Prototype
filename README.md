@@ -1,5 +1,5 @@
 🤖 Global Vision AI: Multimodal RAG & Data Operations Agent
-Live Demo: [View Prototype](https://rag-agent-prototype-gy6jzbfwgtezeprvfifjd8.streamlit.app/)
+Live Demo: [View Prototype](https://rag-agent-prototype-ecvzz8hjn2aauzprcae5sc.streamlit.app/)
 
 📖 Project Overview
 Global Vision AI is a High-Performance AI Orchestration Framework built to bridge the gap between Large Language Models (LLMs) and structured business data. Unlike standard chatbots, this system implements a Grounded RAG (Retrieval-Augmented Generation) pipeline that combines live web intelligence with local data analytics.
