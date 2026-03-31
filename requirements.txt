@@ -9,3 +9,5 @@ langchain-community
 tavily-python
 pillow
 wikipedia
+chromadb
+sentence-transformers
