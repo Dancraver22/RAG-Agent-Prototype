@@ -46,7 +46,7 @@ with st.sidebar:
         if st.button("Index to Long-Term Memory"):
             with st.spinner("Indexing..."):
                 files = {"file": (uploaded_csv.name, uploaded_csv.getvalue())}
-                res = requests.post("http://backend:8000/upload", files=files)
+                res = requests.post("https://rag-agent-prototype.onrender.com", files=files)
                 if res.status_code == 200:
                     st.success("Data indexed successfully!")
 
