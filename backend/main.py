@@ -14,6 +14,7 @@ from database import index_any_csv, search_data_vault, index_text_snippet
 app = FastAPI(title="Global Vision AI: Hybrid Edition")
 
 # --- HYBRID CONFIGURATION ---
+# Set RUN_OFFLINE="true" in your local .env to use your PC hardware
 RUN_OFFLINE = os.getenv("RUN_OFFLINE", "false").lower() == "true"
 
 if RUN_OFFLINE:
@@ -50,19 +51,21 @@ async def upload_file(file: UploadFile = File(...)):
 
 @app.post("/chat")
 async def chat_endpoint(request: ChatRequest):
-    # 1. RETRIEVE DATA: This pulls relevant snippets from your CSV/ChromaDB
-    data_context = search_data_vault(request.message)
+    # 1. AUTO-SAVE HARVESTER: Automatically save substantial chats to memory
+    if len(request.message) > 25:
+        index_text_snippet(request.message, source="auto_harvester")
 
-    # 2. UPDATED SYSTEM PROMPT: Forces the agent to use the retrieved data
-    sys_prompt = SystemMessage(content=(
-        f"IDENTITY: You are Global Vision AI, a high-performance RAG agent.\n"
-        f"ACTIVE PERSONA: {personas.get(request.persona, personas['Professional'])}\n\n"
-        f"LONG-TERM MEMORY (ChromaDB): {data_context}\n\n"
-        "CRITICAL DIRECTIVES:\n"
-        "1. YOU HAVE A MEMORY. If the user asks about data they sent, check the LONG-TERM MEMORY section above.\n"
-        "2. DO NOT say you are just a text model. You ARE the data processing engine.\n"
-        "3. Use 'RETRIEVED CONTEXT' to perform technical analysis on the CSV rows provided."
-    ))
+    # 2. VISION PROCESSING: Analyze images and update context
+    vision_context = ""
+    if request.image_data:
+        vision_prompt = [
+            {"type": "text", "text": "Describe this technical art screenshot in detail for my RAG memory."},
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{request.image_data}"}}
+        ]
+        vision_res = llm.invoke([HumanMessage(content=vision_prompt)])
+        vision_context = f"\n[CURRENT VISUAL DATA]: {vision_res.content}"
+        # Save description so the AI 'remembers' the image tomorrow
+        index_text_snippet(vision_res.content, source="vision_analysis")
 
     # 3. RAG RETRIEVAL: Pull context from ChromaDB
     data_context = search_data_vault(request.message)
@@ -94,7 +97,11 @@ async def chat_endpoint(request: ChatRequest):
         full_messages.append(response)
         t_map = {t.name: t for t in all_tools}
         for t_call in response.tool_calls:
-            observation = t_map[t_call["name"]].invoke(t_call["args"])
+            # Graceful tool handling if offline
+            if RUN_OFFLINE and t_call["name"] in ["fact_check_search", "wikipedia"]:
+                observation = "System Error: Web tools are unavailable in Offline Mode."
+            else:
+                observation = t_map[t_call["name"]].invoke(t_call["args"])
             full_messages.append(ToolMessage(content=str(observation), tool_call_id=t_call["id"]))
         
         final_response = llm.invoke(full_messages)
