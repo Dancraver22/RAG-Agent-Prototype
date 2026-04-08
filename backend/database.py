@@ -5,13 +5,13 @@ import io
 import os
 
 # Production-grade embedding model
-# This runs on your CPU/GPU. It will download once and then stay offline.
+# This runs locally on your CPU/GPU and caches in RAM
 _ef = embedding_functions.SentenceTransformerEmbeddingFunction(
     model_name="BAAI/bge-base-en-v1.5",
     device="cpu" 
 )
 
-# Persistent storage: Saves to the 'chroma_db' folder on your hard drive or Space
+# Persistent storage: Saves to the 'chroma_db' folder
 _client = chromadb.PersistentClient(path="./chroma_db")
 
 def index_text_snippet(text: str, source: str = "manual_chat"):
@@ -46,7 +46,6 @@ def index_any_csv(file_content: bytes, filename: str):
         ids = []
 
         for i, row in df.iterrows():
-            # cleaner string representation for better vector matching
             row_str = " | ".join([f"{col}: {val}" for col, val in row.items() if pd.notnull(val)])
             documents.append(row_str)
             metadatas.append({"source": filename, "row_index": i})
@@ -58,7 +57,7 @@ def index_any_csv(file_content: bytes, filename: str):
         return {"status": "error", "message": f"Indexing failed: {str(e)}"}
 
 def search_data_vault(query: str, n_results: int = 10):
-    """Retrieves top 10 relevant matches for LLM context."""
+    """Retrieves relevant matches for LLM context."""
     try:
         collection = _client.get_collection(name="user_data_vault", embedding_function=_ef)
         results = collection.query(query_texts=[query], n_results=n_results)
