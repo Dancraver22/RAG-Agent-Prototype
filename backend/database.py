@@ -5,13 +5,11 @@ import io
 import os
 
 # Production-grade embedding model
-# Runs on CPU/GPU and caches in RAM for offline speed
 _ef = embedding_functions.SentenceTransformerEmbeddingFunction(
     model_name="BAAI/bge-base-en-v1.5",
     device="cpu" 
 )
 
-# Persistent storage: Saves to the 'chroma_db' folder
 _client = chromadb.PersistentClient(path="./chroma_db")
 
 def index_text_snippet(text: str, source: str = "manual_chat"):
